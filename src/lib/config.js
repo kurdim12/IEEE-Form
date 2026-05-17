@@ -15,7 +15,7 @@
 // version of the project.
 // ============================================================================
 
-export const AIRTABLE_TOKEN = '';
+export const AIRTABLE_TOKEN = 'patEftXM9jUdmKQXx.777f96bb870a352d2a6f37819b78decdff4f771442dcf72706ea0e87537f2a27';
 export const AIRTABLE_BASE_ID = 'appJZtjKuHRmJdwqt';
 export const AIRTABLE_TABLE_ID = 'tblEN5ajH7Qz0nLG7';
 
