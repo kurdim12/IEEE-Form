@@ -105,18 +105,19 @@ the students who need to register.
 
 ---
 
-## 4. Add real logos
+## 4. Add the real logo
 
-Drop the official PNG logos into `public/`:
+Drop the official combined IEEE × University of Petra logo into `public/`:
 
-- `public/uop-logo.png` — University of Petra logo
-- `public/ieee-logo.png` — IEEE logo
+- `public/logo.png` — combined IEEE + Petra Treasury + "University of Petra
+  Student Branch" lockup
 
-Recommended dimensions: square or 4:3, transparent background, at least
-256×256 px. The header element renders at `~56–64 px` tall.
+Recommended dimensions: roughly 2:1 (wide) or square, transparent
+background, at least **1024 px** wide. The header renders it up to ~160 px
+tall on desktop.
 
-If a PNG is missing, the app automatically falls back to the bundled SVG
-placeholders (`uop-logo.svg`, `ieee-logo.svg`) so the layout never breaks.
+If `logo.png` is missing the app automatically falls back to the bundled
+`logo.svg` placeholder so the layout never breaks during development.
 
 ---
 
@@ -175,8 +176,7 @@ ieee-uop-registration/
 ├── apps-script/
 │   └── Code.gs                  # Google Apps Script backend
 ├── public/
-│   ├── ieee-logo.svg            # placeholder (replace with real PNG)
-│   └── uop-logo.svg             # placeholder (replace with real PNG)
+│   └── logo.svg                 # placeholder (drop your `logo.png` next to it)
 ├── src/
 │   ├── components/
 │   │   ├── Header.jsx

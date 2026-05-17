@@ -13,11 +13,14 @@
   }
 
   html[dir='rtl'] body {
-    font-family: 'Cairo', 'Tajawal', 'Segoe UI', sans-serif;
+    font-family: 'IBM Plex Sans Arabic', 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+    font-feature-settings: 'kern' 1, 'liga' 1;
   }
 
   html[dir='ltr'] body {
-    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+    font-feature-settings: 'kern' 1, 'ss01' 1, 'cv11' 1;
+    letter-spacing: -0.005em;
   }
 
   body {

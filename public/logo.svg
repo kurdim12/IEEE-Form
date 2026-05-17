@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 220" role="img" aria-label="IEEE University of Petra Student Branch">
+  <defs>
+    <linearGradient id="ieee-blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0078B9"/>
+      <stop offset="1" stop-color="#00629B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- IEEE diamond mark -->
+  <g transform="translate(50 50)">
+    <rect x="0" y="0" width="80" height="80" rx="8" transform="rotate(45 40 40)" fill="url(#ieee-blue)"/>
+    <g transform="translate(40 40)" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round">
+      <circle cx="0" cy="6" r="14"/>
+      <path d="M0 -22 L0 20"/>
+      <polygon points="-5,-18 0,-26 5,-18" fill="#fff" stroke="none"/>
+    </g>
+  </g>
+
+  <!-- IEEE wordmark -->
+  <text x="160" y="115"
+    font-family="Plus Jakarta Sans, Inter, Arial, sans-serif"
+    font-size="78" font-weight="800" fill="#00629B" letter-spacing="-2">
+    IEEE
+  </text>
+
+  <!-- divider -->
+  <line x1="370" y1="55" x2="370" y2="125" stroke="#CBD5E1" stroke-width="2"/>
+
+  <!-- Petra columns (stylised) -->
+  <g transform="translate(390 50)" fill="#8B2331">
+    <polygon points="40,0 0,30 80,30" />
+    <rect x="6" y="30" width="68" height="6"/>
+    <rect x="10" y="40" width="8" height="48"/>
+    <rect x="24" y="40" width="8" height="48"/>
+    <rect x="48" y="40" width="8" height="48"/>
+    <rect x="62" y="40" width="8" height="48"/>
+    <rect x="0" y="88" width="80" height="8"/>
+  </g>
+
+  <!-- separator line -->
+  <line x1="50" y1="160" x2="470" y2="160" stroke="#1E293B" stroke-width="1.5"/>
+
+  <!-- Tagline -->
+  <text x="260" y="195" text-anchor="middle"
+    font-family="Plus Jakarta Sans, Inter, Arial, sans-serif"
+    font-size="20" font-weight="700" letter-spacing="2">
+    <tspan fill="#8B2331">UNIVERSITY OF PETRA </tspan>
+    <tspan fill="#00629B">STUDENT BRANCH</tspan>
+  </text>
+</svg>
