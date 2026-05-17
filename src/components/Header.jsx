@@ -21,7 +21,7 @@ export default function Header({ lang, onToggleLang, t }) {
         <Logo
           name="logo"
           alt={lang === 'ar' ? 'الفرع الطلابي IEEE - جامعة البترا' : 'IEEE University of Petra Student Branch'}
-          className="h-28 w-auto object-contain drop-shadow-sm sm:h-36 md:h-40"
+          className="-my-6 h-48 w-auto object-contain drop-shadow-sm sm:-my-8 sm:h-64 md:-my-10 md:h-72"
         />
         <p className="mt-4 text-sm font-semibold text-slate-600 sm:text-base">
           {t.header.subtitle}
