@@ -1,4 +1,4 @@
-const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
+const ENDPOINT = '/api/submit';
 
 export class SubmissionError extends Error {
   constructor(code, message) {
@@ -8,22 +8,17 @@ export class SubmissionError extends Error {
 }
 
 export function isApiConfigured() {
-  return Boolean(APPS_SCRIPT_URL);
+  // The endpoint is same-origin; configuration lives server-side in env vars.
+  // The frontend has no way to verify those, so we assume yes.
+  return true;
 }
 
 export async function submitRegistration(payload) {
-  if (!APPS_SCRIPT_URL) {
-    throw new SubmissionError('configMissing', 'Apps Script URL missing');
-  }
-
   let response;
   try {
-    response = await fetch(APPS_SCRIPT_URL, {
+    response = await fetch(ENDPOINT, {
       method: 'POST',
-      redirect: 'follow',
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
   } catch (err) {
@@ -33,15 +28,13 @@ export async function submitRegistration(payload) {
   let data;
   try {
     data = await response.json();
-  } catch (err) {
+  } catch {
     throw new SubmissionError('network', 'Invalid response');
   }
 
-  if (!data.success) {
-    if (data.error === 'duplicate') {
-      throw new SubmissionError('duplicate', 'Duplicate registration');
-    }
-    throw new SubmissionError('generic', data.error || 'Unknown error');
+  if (!response.ok || !data.success) {
+    if (data.error === 'duplicate') throw new SubmissionError('duplicate', 'Duplicate registration');
+    throw new SubmissionError('generic', data.error || `HTTP ${response.status}`);
   }
 
   return data;

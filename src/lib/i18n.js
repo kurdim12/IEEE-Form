@@ -81,7 +81,6 @@ export const translations = {
       member3Required: 'بيانات العضو الثالث مطلوبة',
       network: 'حدث خطأ في الاتصال. حاول مرة أخرى.',
       duplicate: 'تم تسجيل هذا الفريق مسبقاً بنفس الرقم الجامعي للقائد.',
-      configMissing: 'لم يتم ضبط رابط الـ Apps Script. راجع ملف .env',
       generic: 'حدث خطأ غير متوقع. حاول مرة أخرى.',
     },
     footer: {
@@ -156,7 +155,6 @@ export const translations = {
       member3Required: 'Member 3 details are required',
       network: 'Network error. Please try again.',
       duplicate: 'This team is already registered with the same Leader University ID.',
-      configMissing: 'Apps Script URL is not configured. Check your .env file.',
       generic: 'An unexpected error occurred. Please try again.',
     },
     footer: {

@@ -1,155 +1,150 @@
 # IEEE UoP — Team Registration
 
-Bilingual (Arabic RTL + English) team-registration website for the **IEEE
-Student Branch at the University of Petra**. The frontend is a React + Vite
-+ Tailwind single-page app; the "backend" is a Google Apps Script Web App
-that appends each submission as a row in a Google Sheet — no server, no
-database, no paid services.
+Bilingual (Arabic RTL + English) team-registration site for the **IEEE
+Student Branch at the University of Petra**.
+
+- **Frontend:** React + Vite + Tailwind, single-page app
+- **Backend:** Vercel serverless function (`/api/submit`) that writes to
+  **Airtable**
+- **Where you see responses:** in your Airtable base — sortable, filterable,
+  drag-and-drop kanban for grouping teams
+
+The Airtable token is server-side only; it never reaches the browser.
 
 ---
 
-## Quick start
+## Quick reference
+
+| Command          | What it does                                        |
+| ---------------- | --------------------------------------------------- |
+| `npm install`    | Install dependencies                                |
+| `npm run setup`  | One-time: create all Airtable fields automatically  |
+| `npm run dev`    | Run the site locally on http://localhost:5173       |
+| `npm run build`  | Build production bundle to `dist/`                  |
+
+---
+
+## 1. Airtable setup (~3 minutes)
+
+1. Sign up / sign in at https://airtable.com.
+2. Create a new base named **`IEEE UoP Registrations`** (start from scratch).
+3. Go to https://airtable.com/create/tokens and click **Create new token**.
+   - **Name:** `IEEE Form`
+   - **Scopes (add all four):**
+     - `data.records:read`
+     - `data.records:write`
+     - `schema.bases:read`
+     - `schema.bases:write`
+   - **Access:** select the base you just created.
+   - Click **Create token** and copy the value (starts with `pat...`).
+4. From your base's URL, copy:
+   - The **base ID** (segment that starts with `app...`).
+   - The **table ID** (segment that starts with `tbl...`).
+
+   Example URL: `https://airtable.com/appXXXX/tblYYYY/viwZZZZ`  
+   → Base ID: `appXXXX`, Table ID: `tblYYYY`.
+
+---
+
+## 2. Run the one-time field setup
+
+Either locally (if you have Node 20.6+ installed) **or** in a free GitHub
+Codespace (Code button on the repo → Codespaces → Create codespace on
+this branch).
 
 ```bash
 npm install
 cp .env.example .env
-# Paste your Apps Script Web App URL into .env (see "Setup Google Sheet" below)
-npm run dev
+# Edit .env and paste your token + base ID + table ID
+npm run setup
 ```
 
-Open the printed local URL (typically `http://localhost:5173`).
-
----
-
-## 1. Setup the Google Sheet + Apps Script backend
-
-1. Create a new Google Sheet, name it **`IEEE UoP Registrations`**.
-2. From the menu choose **Extensions → Apps Script**. A new Apps Script
-   project opens.
-3. Delete the default `Code.gs` contents and paste the contents of
-   [`apps-script/Code.gs`](./apps-script/Code.gs).
-4. Save (💾) and rename the project to `IEEE UoP Registration Backend`.
-5. In the function dropdown choose **`setupSheet`** then click **Run**.
-   - The first run will ask for permissions. Allow them (you may need to
-     click "Advanced ▸ Go to project (unsafe)" because the script is
-     unverified — that's normal for personal Apps Scripts).
-   - This creates a `Submissions` sheet with the correct header row.
-6. Click **Deploy ▸ New deployment**.
-   - Click the gear icon and pick **Web app**.
-   - **Description:** `IEEE UoP Registration v1`
-   - **Execute as:** `Me (your-email)`
-   - **Who has access:** `Anyone`
-   - Click **Deploy**.
-7. Copy the **Web app URL**. It looks like:
-   ```
-   https://script.google.com/macros/s/AKfycb.../exec
-   ```
-8. Open the URL in a browser as a smoke test — you should see
-   `{"success":true,"service":"IEEE UoP Registration","version":1}`.
-
-> **Updating the script later:** if you edit `Code.gs` after the first
-> deployment, use **Deploy ▸ Manage deployments**, click the pencil icon,
-> set **Version → New version**, and **Deploy**. The URL stays the same.
-
----
-
-## 2. Local development
-
-```bash
-npm install
-cp .env.example .env
-```
-
-Edit `.env`:
+You should see output like:
 
 ```
-VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/AKfycb.../exec
+✓ Team Size           created (singleSelect)
+✓ Leader Name         created (singleLineText)
+✓ Leader ID           created (singleLineText)
+...
+✓ Group               created (singleSelect)
+✓ Submitted At        created (createdTime)
+
+Done. Open your base in Airtable to confirm.
 ```
 
-Then:
+Refresh your Airtable base — every field is now there.
 
-```bash
-npm run dev
-```
-
-The site is mobile-first. Test from a phone on the same Wi-Fi by visiting
-the **Network** URL Vite prints.
-
-### Scripts
-
-| Command           | What it does                              |
-| ----------------- | ----------------------------------------- |
-| `npm run dev`     | Vite dev server with hot reload           |
-| `npm run build`   | Build production bundle to `dist/`        |
-| `npm run preview` | Serve the production build locally        |
+After the setup runs successfully, you can **narrow the token's scopes**
+back down to just `data.records:read` and `data.records:write` for
+ongoing use. The schema scopes are only needed for the one-time setup.
 
 ---
 
 ## 3. Deploy to Vercel
 
 1. Push the repo to GitHub.
-2. Go to [vercel.com](https://vercel.com), click **Add new ▸ Project**, and
-   import the GitHub repo.
-3. Framework preset auto-detects **Vite**. Leave defaults.
-4. Under **Environment Variables** add:
-   - Key: `VITE_APPS_SCRIPT_URL`
-   - Value: your Apps Script Web App URL
+2. https://vercel.com → **Add new ▸ Project** → import the repo.
+3. Framework auto-detects Vite. Leave the defaults.
+4. **Add three Environment Variables** (Settings ▸ Environment Variables):
+   - `AIRTABLE_TOKEN` → your `pat...` value
+   - `AIRTABLE_BASE_ID` → `app...`
+   - `AIRTABLE_TABLE_ID` → `tbl...`
+
+   ⚠️ Do **not** prefix these with `VITE_`. They must stay server-side.
 5. Click **Deploy**.
 
-When the deploy is done you'll get a `*.vercel.app` URL — share it with
-the students who need to register.
+When it finishes you get a `*.vercel.app` URL — that's the form to share.
 
-> **Heads up:** if you update `VITE_APPS_SCRIPT_URL` later you must trigger
-> a fresh build (Vercel ▸ Deployments ▸ ⋯ ▸ Redeploy). Vite inlines `VITE_*`
-> values at build time.
+> Updating the token later? Vercel will use the new value on the next
+> deploy. Trigger one via **Deployments ▸ ⋯ ▸ Redeploy** if needed.
 
 ---
 
-## 4. Add the real logo
+## 4. Local development
 
-Drop the official combined IEEE × University of Petra logo into `public/`:
+```bash
+npm install
+cp .env.example .env
+# Paste your credentials
+npm run dev
+```
 
-- `public/logo.png` — combined IEEE + Petra Treasury + "University of Petra
-  Student Branch" lockup
-
-Recommended dimensions: roughly 2:1 (wide) or square, transparent
-background, at least **1024 px** wide. The header renders it up to ~160 px
-tall on desktop.
-
-If `logo.png` is missing the app automatically falls back to the bundled
-`logo.svg` placeholder so the layout never breaks during development.
+Open http://localhost:5173. The Vite dev server includes a built-in
+middleware that handles `POST /api/submit` exactly like the Vercel
+function would, so the local form really does write to your Airtable.
 
 ---
 
-## 5. View submissions
+## 5. Where you see responses (and how to organize them)
 
-Open the **Google Sheet** you created in step 1. Submissions appear in the
-`Submissions` tab in real time, with this column layout:
+Open your Airtable base. Every submission becomes a new row. The schema
+setup already created two fields specifically for organizing teams:
 
-```
-Timestamp | Team Name | Team Size |
-Leader Name | Leader ID | Leader Major | Leader Phone |
-Member 2 Name | Member 2 ID | Member 2 Major | Member 2 Phone |
-Member 3 Name | Member 3 ID | Member 3 Major | Member 3 Phone |
-Language
-```
+- **Group** — single-select with options A through H, each a different
+  colour. Switch to **Kanban view** (toolbar ▸ Kanban) grouped by this
+  field to drag teams between groups visually.
+- **Status** — single-select: `New`, `Contacted`, `Confirmed`, `Rejected`.
+  Track where each team is in your workflow.
 
-For teams of 2, the Member 3 columns are blank.
+Other things you can do directly in Airtable:
+- **Share with your committee** (Share button, top-right) — read or edit.
+- **Sort / filter** by major, team size, status, group — toolbar.
+- **Create views** (Grid, Kanban, Calendar, Gallery) for different angles.
+- **Export to CSV** — view menu ▸ Download CSV.
+- **Mobile** — the Airtable app on iOS / Android works on the same base.
 
 ---
 
 ## How duplicate prevention works
 
-Before appending a row, the Apps Script checks whether the **Leader's
-University ID** already exists in the sheet. If it does, the script returns
+Before creating a row, `/api/submit` checks whether the **Leader's
+University ID** already exists. If it does, the server returns
 `{ success: false, error: "duplicate" }` and the UI shows:
 
 - AR: `تم تسجيل هذا الفريق مسبقاً بنفس الرقم الجامعي للقائد.`
 - EN: `This team is already registered with the same Leader University ID.`
 
-This stops accidental double-submissions and discourages a single team
-leader from registering multiple times. (Members can still be on multiple
-teams — the dedupe key is the leader's ID only.)
+Same dedupe key whether you submit from production or local dev.
 
 ---
 
@@ -164,8 +159,8 @@ teams — the dedupe key is the leader's ID only.)
 | Major           | Required (dropdown)                           |
 | Phone           | Jordanian mobile: `^(\+962\|0)?7[789]\d{7}$`  |
 
-The same validation runs server-side in `apps-script/Code.gs` so a
-malicious client can't bypass it.
+Both the React form and the serverless function enforce these — a
+malicious client can't bypass the server check.
 
 ---
 
@@ -173,31 +168,30 @@ malicious client can't bypass it.
 
 ```
 ieee-uop-registration/
-├── apps-script/
-│   └── Code.gs                  # Google Apps Script backend
+├── api/
+│   └── submit.js                # Vercel serverless POST endpoint
+├── lib/
+│   └── airtable.js              # Core handler (used by api/ and vite dev)
+├── scripts/
+│   └── setup-airtable.mjs       # One-time schema bootstrap
 ├── public/
-│   └── logo.svg                 # placeholder (drop your `logo.png` next to it)
+│   ├── logo.png                 # IEEE x UoP combined logo
+│   └── logo.svg                 # fallback placeholder
 ├── src/
-│   ├── components/
-│   │   ├── Header.jsx
-│   │   ├── LanguageToggle.jsx
-│   │   ├── Logo.jsx
-│   │   ├── MemberForm.jsx
-│   │   ├── StepIndicator.jsx
-│   │   ├── SuccessScreen.jsx
-│   │   └── TeamSizeSelector.jsx
+│   ├── components/              # Header, MemberForm, etc.
 │   ├── lib/
-│   │   ├── api.js               # POST helper + error class
+│   │   ├── api.js               # POST helper
 │   │   ├── i18n.js              # AR + EN strings, majors list
-│   │   └── schema.js            # Zod schemas
-│   ├── App.jsx                  # state, step routing, submit flow
-│   ├── index.css                # Tailwind + fonts
+│   │   └── schema.js            # Zod validation
+│   ├── App.jsx
+│   ├── index.css
 │   └── main.jsx
 ├── .env.example
 ├── index.html
 ├── package.json
 ├── postcss.config.js
 ├── tailwind.config.js
+├── vercel.json
 └── vite.config.js
 ```
 
@@ -205,22 +199,21 @@ ieee-uop-registration/
 
 ## Troubleshooting
 
-**"Apps Script URL is not configured"** — `.env` is empty or you forgot to
-restart `npm run dev` after editing it.
+**`Missing env var: AIRTABLE_TOKEN` in dev** — you didn't copy
+`.env.example` to `.env` or didn't fill in all three values.
 
-**Submissions never reach the sheet** — open the Apps Script editor →
-**Executions** (left rail) — failed requests show stack traces. Common
-causes: deployment access is set to "Only myself" instead of "Anyone", or
-the deployment is an older version that's missing `doPost`.
+**Setup script fails with `INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND`** — the
+token is missing `schema.bases:read` or `schema.bases:write`. Update the
+token at https://airtable.com/create/tokens and re-run.
 
-**CORS error in browser console** — Apps Script Web Apps allow cross-origin
-POSTs *only* if you don't preflight. The frontend sends `Content-Type:
-text/plain;charset=utf-8` (instead of `application/json`) specifically to
-avoid triggering a CORS preflight. Don't change that header.
+**Form submit fails with `airtable_error`** — open the Network tab in dev
+tools and look at `/api/submit` response. The `detail` field has the raw
+Airtable error message. Usually means a field name was renamed in
+Airtable (don't rename the fields the setup script creates).
 
-**Arabic font looks wrong** — make sure your browser isn't blocking
-`fonts.googleapis.com`. The fallback chain (`Cairo → Tajawal → Segoe UI`)
-keeps the page readable either way.
+**Vercel deploy succeeds but submits 500** — env vars aren't set in
+Vercel. Settings ▸ Environment Variables ▸ make sure all three are
+filled in for **Production** (and Preview if you use preview deploys).
 
 ---
 

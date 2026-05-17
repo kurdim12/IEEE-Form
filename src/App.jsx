@@ -12,7 +12,7 @@ import StepIndicator from './components/StepIndicator.jsx';
 
 import { getTranslation } from './lib/i18n.js';
 import { buildFormSchema } from './lib/schema.js';
-import { submitRegistration, SubmissionError, isApiConfigured } from './lib/api.js';
+import { submitRegistration, SubmissionError } from './lib/api.js';
 
 const DEFAULT_MEMBER = { fullName: '', universityId: '', major: '', phone: '' };
 const DEFAULT_VALUES = {
@@ -122,12 +122,6 @@ export default function App() {
       <Header lang={lang} onToggleLang={handleToggleLang} t={t} />
 
       <main className="mx-auto max-w-2xl px-4 sm:px-6">
-        {!isApiConfigured() && !isSubmitted && (
-          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            <p className="font-semibold">⚠️ {t.errors.configMissing}</p>
-          </div>
-        )}
-
         {!isSubmitted && <StepIndicator current={step} total={totalSteps} t={t} />}
 
         <AnimatePresence mode="wait" initial={false}>
