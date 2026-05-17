@@ -2,11 +2,18 @@ import { useEffect, useMemo, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
 
-import { ADMIN_PASSWORD, isConfigured } from '../lib/config.js';
-import { fetchAllRecords, updateRecord, deleteRecord } from '../lib/admin-api.js';
+import { isConfigured } from '../lib/config.js';
+import {
+  fetchAllRecords,
+  updateRecord,
+  deleteRecord,
+  signIn,
+  signOut,
+  getSession,
+  onAuthChange,
+} from '../lib/admin-api.js';
 import Logo from './Logo.jsx';
 
-const AUTH_KEY = 'ieee-form-admin-auth-v1';
 const STATUS_OPTIONS = ['New', 'Contacted', 'Confirmed', 'Rejected'];
 const GROUP_OPTIONS = ['', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
@@ -28,14 +35,13 @@ const GROUP_STYLES = {
   H: 'bg-purple-100 text-purple-800',
 };
 
-function getInitialAuth() {
-  if (typeof window === 'undefined') return false;
-  return window.sessionStorage.getItem(AUTH_KEY) === 'yes';
-}
-
 export default function Admin() {
-  const [authed, setAuthed] = useState(getInitialAuth);
-  const [pwInput, setPwInput] = useState('');
+  const [session, setSession] = useState(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [signingIn, setSigningIn] = useState(false);
+
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -53,8 +59,19 @@ export default function Admin() {
   }, []);
 
   useEffect(() => {
-    if (authed) refresh();
-  }, [authed]);
+    let unsub = () => {};
+    (async () => {
+      const initial = await getSession();
+      setSession(initial);
+      setCheckingSession(false);
+      unsub = onAuthChange((s) => setSession(s));
+    })();
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (session) refresh();
+  }, [session]);
 
   async function refresh() {
     setLoading(true);
@@ -69,32 +86,34 @@ export default function Admin() {
     }
   }
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
-    if (pwInput === ADMIN_PASSWORD) {
-      window.sessionStorage.setItem(AUTH_KEY, 'yes');
-      setAuthed(true);
-      setPwInput('');
-    } else {
-      toast.error('Wrong password');
+    setSigningIn(true);
+    try {
+      await signIn(email, password);
+      setEmail('');
+      setPassword('');
+    } catch (err) {
+      toast.error(err.message || 'Sign-in failed');
+    } finally {
+      setSigningIn(false);
     }
   }
 
-  function logout() {
-    window.sessionStorage.removeItem(AUTH_KEY);
-    setAuthed(false);
+  async function handleLogout() {
+    await signOut();
   }
 
   async function patchField(recordId, field, value) {
-    const next = records.map((r) =>
-      r.id === recordId ? { ...r, fields: { ...r.fields, [field]: value || undefined } } : r,
+    const previous = records;
+    setRecords((rs) =>
+      rs.map((r) => (r.id === recordId ? { ...r, [field]: value || null } : r)),
     );
-    setRecords(next);
     try {
       await updateRecord(recordId, { [field]: value || null });
     } catch (err) {
       toast.error(`Save failed: ${err.message}`);
-      refresh();
+      setRecords(previous);
     }
   }
 
@@ -112,42 +131,36 @@ export default function Admin() {
   const stats = useMemo(() => {
     const total = records.length;
     const byStatus = STATUS_OPTIONS.reduce((acc, s) => {
-      acc[s] = records.filter((r) => r.fields.Status === s).length;
+      acc[s] = records.filter((r) => (r.status || 'New') === s).length;
       return acc;
     }, {});
-    const byGroup = {};
-    for (const g of GROUP_OPTIONS) {
-      if (!g) continue;
-      byGroup[g] = records.filter((r) => r.fields.Group === g).length;
-    }
-    const ungrouped = records.filter((r) => !r.fields.Group).length;
-    const teams2 = records.filter((r) => String(r.fields['Team Size']) === '2').length;
-    const teams3 = records.filter((r) => String(r.fields['Team Size']) === '3').length;
-    return { total, byStatus, byGroup, ungrouped, teams2, teams3 };
+    const ungrouped = records.filter((r) => !r.group_letter).length;
+    const teams2 = records.filter((r) => String(r.team_size) === '2').length;
+    const teams3 = records.filter((r) => String(r.team_size) === '3').length;
+    return { total, byStatus, ungrouped, teams2, teams3 };
   }, [records]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return records.filter((r) => {
-      const f = r.fields;
-      if (statusFilter !== 'all' && (f.Status || 'New') !== statusFilter) return false;
+      if (statusFilter !== 'all' && (r.status || 'New') !== statusFilter) return false;
       if (groupFilter !== 'all') {
-        if (groupFilter === '_none' && f.Group) return false;
-        if (groupFilter !== '_none' && f.Group !== groupFilter) return false;
+        if (groupFilter === '_none' && r.group_letter) return false;
+        if (groupFilter !== '_none' && r.group_letter !== groupFilter) return false;
       }
-      if (sizeFilter !== 'all' && String(f['Team Size']) !== sizeFilter) return false;
+      if (sizeFilter !== 'all' && String(r.team_size) !== sizeFilter) return false;
       if (!q) return true;
       const haystack = [
-        f['Team Name'],
-        f['Leader Name'],
-        f['Leader ID'],
-        f['Leader Phone'],
-        f['Member 2 Name'],
-        f['Member 2 ID'],
-        f['Member 2 Phone'],
-        f['Member 3 Name'],
-        f['Member 3 ID'],
-        f['Member 3 Phone'],
+        r.team_name,
+        r.leader_name,
+        r.leader_id,
+        r.leader_phone,
+        r.member2_name,
+        r.member2_id,
+        r.member2_phone,
+        r.member3_name,
+        r.member3_id,
+        r.member3_phone,
       ]
         .filter(Boolean)
         .join(' ')
@@ -158,32 +171,32 @@ export default function Admin() {
 
   function exportCSV() {
     const cols = [
-      'Team Name',
-      'Team Size',
-      'Status',
-      'Group',
-      'Leader Name',
-      'Leader ID',
-      'Leader Major',
-      'Leader Phone',
-      'Member 2 Name',
-      'Member 2 ID',
-      'Member 2 Major',
-      'Member 2 Phone',
-      'Member 3 Name',
-      'Member 3 ID',
-      'Member 3 Major',
-      'Member 3 Phone',
-      'Language',
-      'Submitted At',
+      ['team_name', 'Team Name'],
+      ['team_size', 'Team Size'],
+      ['status', 'Status'],
+      ['group_letter', 'Group'],
+      ['leader_name', 'Leader Name'],
+      ['leader_id', 'Leader ID'],
+      ['leader_major', 'Leader Major'],
+      ['leader_phone', 'Leader Phone'],
+      ['member2_name', 'Member 2 Name'],
+      ['member2_id', 'Member 2 ID'],
+      ['member2_major', 'Member 2 Major'],
+      ['member2_phone', 'Member 2 Phone'],
+      ['member3_name', 'Member 3 Name'],
+      ['member3_id', 'Member 3 ID'],
+      ['member3_major', 'Member 3 Major'],
+      ['member3_phone', 'Member 3 Phone'],
+      ['language', 'Language'],
+      ['created_at', 'Submitted At'],
     ];
     const escape = (v) => {
       const s = String(v == null ? '' : v);
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     };
-    const lines = [cols.join(',')];
+    const lines = [cols.map(([, label]) => label).join(',')];
     for (const r of filtered) {
-      lines.push(cols.map((c) => escape(r.fields[c])).join(','));
+      lines.push(cols.map(([key]) => escape(r[key])).join(','));
     }
     const csv = lines.join('\n');
     const blob = new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8;' });
@@ -200,8 +213,17 @@ export default function Admin() {
       <div className="mx-auto mt-24 max-w-md rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center">
         <h1 className="mb-2 text-2xl font-bold text-amber-900">Not configured</h1>
         <p className="text-sm text-amber-800">
-          Add your Airtable token in <code className="rounded bg-amber-100 px-1.5 py-0.5">src/lib/config.js</code> and redeploy.
+          Add your Supabase URL + anon key in{' '}
+          <code className="rounded bg-amber-100 px-1.5 py-0.5">src/lib/config.js</code> and redeploy.
         </p>
+      </div>
+    );
+  }
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-sm text-slate-500">Loading…</div>
       </div>
     );
   }
@@ -220,8 +242,9 @@ export default function Admin() {
             </div>
           </a>
 
-          {authed && (
+          {session && (
             <div className="flex items-center gap-2">
+              <span className="hidden text-xs text-slate-500 sm:inline">{session.user.email}</span>
               <button
                 type="button"
                 onClick={refresh}
@@ -250,7 +273,7 @@ export default function Admin() {
               </button>
               <button
                 type="button"
-                onClick={logout}
+                onClick={handleLogout}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
               >
                 Log out
@@ -260,7 +283,7 @@ export default function Admin() {
         </div>
       </header>
 
-      {!authed ? (
+      {!session ? (
         <div className="mx-auto mt-24 max-w-md px-4">
           <motion.form
             initial={{ opacity: 0, y: 12 }}
@@ -269,23 +292,37 @@ export default function Admin() {
             className="rounded-3xl border border-slate-100 bg-white p-8 shadow-card"
           >
             <h1 className="mb-1 text-2xl font-extrabold text-slate-900">Admin login</h1>
-            <p className="mb-6 text-sm text-slate-500">Enter the admin password to view registrations.</p>
+            <p className="mb-6 text-sm text-slate-500">
+              Sign in with the admin user you created in Supabase ▸ Authentication.
+            </p>
+            <label className="field-label" htmlFor="admin-email">Email</label>
             <input
+              id="admin-email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@ieee-uop.example"
+              className="field-input mb-4"
+            />
+            <label className="field-label" htmlFor="admin-password">Password</label>
+            <input
+              id="admin-password"
               type="password"
-              autoFocus
-              value={pwInput}
-              onChange={(e) => setPwInput(e.target.value)}
-              placeholder="Password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="field-input"
             />
-            <button type="submit" className="btn-primary mt-4 w-full">
-              Sign in
+            <button type="submit" disabled={signingIn} className="btn-primary mt-5 w-full">
+              {signingIn ? 'Signing in…' : 'Sign in'}
             </button>
           </motion.form>
         </div>
       ) : (
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-          {/* Stats */}
           <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
             <StatCard label="Total teams" value={stats.total} accent="ieee" />
             <StatCard label="Teams of 2" value={stats.teams2} />
@@ -295,7 +332,6 @@ export default function Admin() {
             <StatCard label="Ungrouped" value={stats.ungrouped} accent="amber" />
           </div>
 
-          {/* Filters */}
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <div className="relative flex-1 min-w-[180px]">
               <input
@@ -310,20 +346,20 @@ export default function Admin() {
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
             </div>
-            <FilterSelect label="Status" value={statusFilter} onChange={setStatusFilter}>
+            <FilterSelect value={statusFilter} onChange={setStatusFilter}>
               <option value="all">All statuses</option>
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </FilterSelect>
-            <FilterSelect label="Group" value={groupFilter} onChange={setGroupFilter}>
+            <FilterSelect value={groupFilter} onChange={setGroupFilter}>
               <option value="all">All groups</option>
               <option value="_none">Ungrouped</option>
               {GROUP_OPTIONS.filter(Boolean).map((g) => (
                 <option key={g} value={g}>Group {g}</option>
               ))}
             </FilterSelect>
-            <FilterSelect label="Size" value={sizeFilter} onChange={setSizeFilter}>
+            <FilterSelect value={sizeFilter} onChange={setSizeFilter}>
               <option value="all">Any size</option>
               <option value="2">Teams of 2</option>
               <option value="3">Teams of 3</option>
@@ -339,7 +375,6 @@ export default function Admin() {
             </div>
           )}
 
-          {/* Table */}
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -367,26 +402,26 @@ export default function Admin() {
                         className="hover:bg-slate-50/60"
                       >
                         <td className="px-4 py-3 align-top">
-                          <div className="font-bold text-slate-900">{rec.fields['Team Name'] || '—'}</div>
-                          <div className="text-xs text-slate-400">{rec.fields.Language || ''}</div>
+                          <div className="font-bold text-slate-900">{rec.team_name || '—'}</div>
+                          <div className="text-xs text-slate-400">{rec.language || ''}</div>
                         </td>
                         <td className="px-4 py-3 align-top">
                           <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-md bg-slate-100 px-2 text-xs font-bold text-slate-700">
-                            {rec.fields['Team Size'] || '?'}
+                            {rec.team_size || '?'}
                           </span>
                         </td>
                         <td className="px-4 py-3 align-top">
                           <PillSelect
-                            value={rec.fields.Status || 'New'}
-                            onChange={(v) => patchField(rec.id, 'Status', v)}
+                            value={rec.status || 'New'}
+                            onChange={(v) => patchField(rec.id, 'status', v)}
                             options={STATUS_OPTIONS}
                             styles={STATUS_STYLES}
                           />
                         </td>
                         <td className="px-4 py-3 align-top">
                           <PillSelect
-                            value={rec.fields.Group || ''}
-                            onChange={(v) => patchField(rec.id, 'Group', v)}
+                            value={rec.group_letter || ''}
+                            onChange={(v) => patchField(rec.id, 'group_letter', v)}
                             options={GROUP_OPTIONS}
                             labels={{ '': '—' }}
                             styles={GROUP_STYLES}
@@ -394,26 +429,22 @@ export default function Admin() {
                           />
                         </td>
                         <td className="px-4 py-3 align-top">
-                          <div className="font-semibold text-slate-900">{rec.fields['Leader Name'] || '—'}</div>
-                          <div className="text-xs text-slate-500">{rec.fields['Leader ID'] || ''}</div>
-                          <div className="text-xs text-slate-500">{rec.fields['Leader Phone'] || ''}</div>
-                          <div className="text-xs text-slate-400">{rec.fields['Leader Major'] || ''}</div>
+                          <div className="font-semibold text-slate-900">{rec.leader_name || '—'}</div>
+                          <div className="text-xs text-slate-500">{rec.leader_id || ''}</div>
+                          <div className="text-xs text-slate-500">{rec.leader_phone || ''}</div>
+                          <div className="text-xs text-slate-400">{rec.leader_major || ''}</div>
                         </td>
                         <td className="px-4 py-3 align-top">
-                          <MemberRow rec={rec} idx={2} />
-                          {rec.fields['Member 3 Name'] && (
-                            <MemberRow rec={rec} idx={3} className="mt-2" />
-                          )}
+                          <MemberBlock rec={rec} idx={2} />
+                          {rec.member3_name && <MemberBlock rec={rec} idx={3} className="mt-2" />}
                         </td>
                         <td className="px-4 py-3 align-top text-xs text-slate-500 whitespace-nowrap">
-                          {rec.fields['Submitted At']
-                            ? new Date(rec.fields['Submitted At']).toLocaleString()
-                            : '—'}
+                          {rec.created_at ? new Date(rec.created_at).toLocaleString() : '—'}
                         </td>
                         <td className="px-4 py-3 align-top text-end">
                           <button
                             type="button"
-                            onClick={() => handleDelete(rec.id, rec.fields['Team Name'] || 'this team')}
+                            onClick={() => handleDelete(rec.id, rec.team_name || 'this team')}
                             className="rounded-md px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
                           >
                             Delete
@@ -444,7 +475,7 @@ export default function Admin() {
           </div>
 
           <p className="mt-4 text-xs text-slate-400">
-            Tip: changes to Status and Group save automatically. Refresh to pull new submissions.
+            Tip: changes to Status and Group save instantly. Use Refresh to pull new submissions.
           </p>
         </main>
       )}
@@ -467,18 +498,15 @@ function StatCard({ label, value, accent = 'slate' }) {
   );
 }
 
-function FilterSelect({ label, value, onChange, children }) {
+function FilterSelect({ value, onChange, children }) {
   return (
-    <label className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-      <span className="sr-only">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-ieee focus:outline-none focus:ring-2 focus:ring-ieee/15"
-      >
-        {children}
-      </select>
-    </label>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-ieee focus:outline-none focus:ring-2 focus:ring-ieee/15"
+    >
+      {children}
+    </select>
   );
 }
 
@@ -503,11 +531,11 @@ function PillSelect({ value, onChange, options, labels = {}, styles = {}, placeh
   );
 }
 
-function MemberRow({ rec, idx, className = '' }) {
-  const name = rec.fields[`Member ${idx} Name`];
-  const id = rec.fields[`Member ${idx} ID`];
-  const phone = rec.fields[`Member ${idx} Phone`];
-  const major = rec.fields[`Member ${idx} Major`];
+function MemberBlock({ rec, idx, className = '' }) {
+  const name = rec[`member${idx}_name`];
+  const id = rec[`member${idx}_id`];
+  const phone = rec[`member${idx}_phone`];
+  const major = rec[`member${idx}_major`];
   if (!name) return null;
   return (
     <div className={className}>

@@ -81,8 +81,7 @@ export const translations = {
       member3Required: 'بيانات العضو الثالث مطلوبة',
       network: 'حدث خطأ في الاتصال. حاول مرة أخرى.',
       duplicate: 'تم تسجيل هذا الفريق مسبقاً بنفس الرقم الجامعي للقائد.',
-      setup: 'تعذّر إعداد قاعدة البيانات. تحقق من صلاحيات الـ Token.',
-      configMissing: 'لم يتم ضبط رمز Airtable. عدّل ملف src/lib/config.js',
+      configMissing: 'لم يتم ضبط Supabase. عدّل ملف src/lib/config.js',
       generic: 'حدث خطأ غير متوقع. حاول مرة أخرى.',
     },
     footer: {
@@ -157,8 +156,7 @@ export const translations = {
       member3Required: 'Member 3 details are required',
       network: 'Network error. Please try again.',
       duplicate: 'This team is already registered with the same Leader University ID.',
-      setup: 'Could not initialize the database. Check the token scopes.',
-      configMissing: 'Airtable token is not set. Edit src/lib/config.js to add it.',
+      configMissing: 'Supabase is not configured. Edit src/lib/config.js to add it.',
       generic: 'An unexpected error occurred. Please try again.',
     },
     footer: {

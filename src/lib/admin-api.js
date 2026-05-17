@@ -1,57 +1,49 @@
-import { AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_ID } from './config.js';
+import { getSupabase, TABLE } from './supabase.js';
 
-const RECORDS_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_ID}`;
-
-function headers() {
-  return {
-    Authorization: `Bearer ${AIRTABLE_TOKEN}`,
-    'Content-Type': 'application/json',
-  };
+function client() {
+  const c = getSupabase();
+  if (!c) throw new Error('Supabase not configured. Edit src/lib/config.js');
+  return c;
 }
 
 export async function fetchAllRecords() {
-  const records = [];
-  let offset;
-  do {
-    const url = new URL(RECORDS_URL);
-    url.searchParams.set('pageSize', '100');
-    url.searchParams.set('sort[0][field]', 'Submitted At');
-    url.searchParams.set('sort[0][direction]', 'desc');
-    if (offset) url.searchParams.set('offset', offset);
-
-    const res = await fetch(url.toString(), { headers: headers() });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Airtable ${res.status}: ${body}`);
-    }
-    const data = await res.json();
-    records.push(...(data.records || []));
-    offset = data.offset;
-  } while (offset);
-  return records;
+  const { data, error } = await client()
+    .from(TABLE)
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
 }
 
-export async function updateRecord(id, fields) {
-  const res = await fetch(`${RECORDS_URL}/${id}`, {
-    method: 'PATCH',
-    headers: headers(),
-    body: JSON.stringify({ fields }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Airtable ${res.status}: ${body}`);
-  }
-  return res.json();
+export async function updateRecord(id, patch) {
+  const { error } = await client().from(TABLE).update(patch).eq('id', id);
+  if (error) throw error;
 }
 
 export async function deleteRecord(id) {
-  const res = await fetch(`${RECORDS_URL}/${id}`, {
-    method: 'DELETE',
-    headers: headers(),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Airtable ${res.status}: ${body}`);
-  }
-  return res.json();
+  const { error } = await client().from(TABLE).delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function signIn(email, password) {
+  const { error } = await client().auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+
+export async function signOut() {
+  await client().auth.signOut();
+}
+
+export async function getSession() {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session;
+}
+
+export function onAuthChange(cb) {
+  const supabase = getSupabase();
+  if (!supabase) return () => {};
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => cb(session));
+  return () => data.subscription.unsubscribe();
 }
