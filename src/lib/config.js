@@ -12,8 +12,8 @@
 // Supabase ▸ Authentication ▸ Users ▸ Add user.
 // ============================================================================
 
-export const SUPABASE_URL = '';
-export const SUPABASE_ANON_KEY = '';
+export const SUPABASE_URL = 'https://rhfrmlesiuiukyknpowo.supabase.co';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoZnJtbGVzaXVpdWt5a25wb3dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMTAxOTIsImV4cCI6MjA5NDU4NjE5Mn0.TcelApqIyKL4Uv1x1M83QAcxYIKyRaGLtfQk_VbfFnc';
 
 export function isConfigured() {
   return (
