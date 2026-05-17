@@ -1,4 +1,5 @@
-const ENDPOINT = '/api/submit';
+import { isConfigured } from './config.js';
+import { ensureSchema, isDuplicate, createRecord } from './airtable.js';
 
 export class SubmissionError extends Error {
   constructor(code, message) {
@@ -8,34 +9,35 @@ export class SubmissionError extends Error {
 }
 
 export function isApiConfigured() {
-  // The endpoint is same-origin; configuration lives server-side in env vars.
-  // The frontend has no way to verify those, so we assume yes.
-  return true;
+  return isConfigured();
 }
 
 export async function submitRegistration(payload) {
-  let response;
+  if (!isConfigured()) {
+    throw new SubmissionError('configMissing', 'Airtable credentials missing');
+  }
+
   try {
-    response = await fetch(ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    await ensureSchema();
   } catch (err) {
-    throw new SubmissionError('network', err.message);
+    throw new SubmissionError('setup', err.message);
   }
 
-  let data;
+  let duplicate = false;
   try {
-    data = await response.json();
+    duplicate = await isDuplicate(payload.leader.universityId);
   } catch {
-    throw new SubmissionError('network', 'Invalid response');
+    // If duplicate check fails (e.g. network blip) we still let the submission
+    // through — Airtable itself will store the row and we can dedupe later.
+  }
+  if (duplicate) {
+    throw new SubmissionError('duplicate', 'Duplicate registration');
   }
 
-  if (!response.ok || !data.success) {
-    if (data.error === 'duplicate') throw new SubmissionError('duplicate', 'Duplicate registration');
-    throw new SubmissionError('generic', data.error || `HTTP ${response.status}`);
+  try {
+    await createRecord(payload);
+    return { success: true };
+  } catch (err) {
+    throw new SubmissionError('generic', err.message);
   }
-
-  return data;
 }

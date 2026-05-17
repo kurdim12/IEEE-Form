@@ -3,152 +3,137 @@
 Bilingual (Arabic RTL + English) team-registration site for the **IEEE
 Student Branch at the University of Petra**.
 
-- **Frontend:** React + Vite + Tailwind, single-page app
-- **Backend:** Vercel serverless function (`/api/submit`) that writes to
-  **Airtable**
+- **Frontend:** React + Vite + Tailwind (single-page app)
+- **Backend:** none — the page talks to **Airtable** directly
 - **Where you see responses:** in your Airtable base — sortable, filterable,
   drag-and-drop kanban for grouping teams
 
-The Airtable token is server-side only; it never reaches the browser.
+> ⚠️ **Short-event configuration.** The Airtable token lives in
+> `src/lib/config.js` and ships in the public JavaScript bundle. This is
+> the right trade-off for a 2-3 day event but **not** for ongoing use.
+> See **Security cleanup** at the bottom — rotate the token and delete
+> the base when the event is over.
 
 ---
 
-## Quick reference
+## One-time setup (~5 minutes)
 
-| Command          | What it does                                        |
-| ---------------- | --------------------------------------------------- |
-| `npm install`    | Install dependencies                                |
-| `npm run setup`  | One-time: create all Airtable fields automatically  |
-| `npm run dev`    | Run the site locally on http://localhost:5173       |
-| `npm run build`  | Build production bundle to `dist/`                  |
+### Step 1 — Get your Airtable token
+
+1. Go to https://airtable.com/create/tokens
+2. Click **Create new token**
+3. **Name:** `IEEE Form`
+4. **Scopes** — add all four:
+   - `data.records:read`
+   - `data.records:write`
+   - `schema.bases:read`
+   - `schema.bases:write`
+5. **Access:** select your `IEEE UoP Registrations` base
+6. Click **Create token**, copy the `pat...` string
+
+### Step 2 — Paste the token into the code
+
+Edit **`src/lib/config.js`** — it's a tiny file:
+
+```js
+export const AIRTABLE_TOKEN = '';                    // paste here ↘
+export const AIRTABLE_BASE_ID = 'appJZtjKuHRmJdwqt';
+export const AIRTABLE_TABLE_ID = 'tblEN5ajH7Qz0nLG7';
+```
+
+Set `AIRTABLE_TOKEN` to your `pat...` value. Leave the other two unless
+you switch bases. Commit the change.
+
+> If `AIRTABLE_BASE_ID` / `AIRTABLE_TABLE_ID` ever change, get them from
+> your base's URL: `airtable.com/<base>/<table>/<view>`.
+
+### Step 3 — Deploy (or let Vercel auto-redeploy)
+
+If the repo is already on Vercel, pushing the commit triggers an auto
+deploy. Otherwise import the repo at https://vercel.com — no env vars
+needed, no config — just deploy.
+
+### Step 4 — First visit creates the Airtable fields
+
+The first time anyone opens the form after submitting, the page makes
+sure all 18 fields exist in your base (Team Name, Team Size, Leader
+Name, ..., Status, Group, Submitted At). After that it's cached in the
+browser's localStorage, so subsequent visits skip the check.
+
+If a field is missing, the page recreates it automatically.
 
 ---
 
-## 1. Airtable setup (~3 minutes)
+## How submissions flow
 
-1. Sign up / sign in at https://airtable.com.
-2. Create a new base named **`IEEE UoP Registrations`** (start from scratch).
-3. Go to https://airtable.com/create/tokens and click **Create new token**.
-   - **Name:** `IEEE Form`
-   - **Scopes (add all four):**
-     - `data.records:read`
-     - `data.records:write`
-     - `schema.bases:read`
-     - `schema.bases:write`
-   - **Access:** select the base you just created.
-   - Click **Create token** and copy the value (starts with `pat...`).
-4. From your base's URL, copy:
-   - The **base ID** (segment that starts with `app...`).
-   - The **table ID** (segment that starts with `tbl...`).
+1. Student fills the form on the deployed site.
+2. The page sends the data straight to the Airtable REST API.
+3. A new row appears in your `Submissions` table within ~2 seconds.
 
-   Example URL: `https://airtable.com/appXXXX/tblYYYY/viwZZZZ`  
-   → Base ID: `appXXXX`, Table ID: `tblYYYY`.
+There is no server. No Apps Script. No Vercel function. No env vars to
+configure.
 
 ---
 
-## 2. Run the one-time field setup
+## Where you see (and organize) responses
 
-Either locally (if you have Node 20.6+ installed) **or** in a free GitHub
-Codespace (Code button on the repo → Codespaces → Create codespace on
-this branch).
+You have **two ways** to view and manage registrations:
+
+### Option 1 — Built-in admin page (recommended)
+
+Open `https://<your-site>.vercel.app/admin` in your browser. Log in with
+the password set in `src/lib/config.js` (default: `ieee-uop-2026` — change
+it before sharing!). You get:
+
+- **Live stats** at the top — total teams, by size, by status, ungrouped count
+- **Search** by team name, leader/member name, university ID, or phone
+- **Filter** by status, group, or team size
+- **Inline edits** — click the Status or Group pill on any row, pick a
+  value, it saves automatically to Airtable
+- **CSV export** of whatever's currently filtered
+- **Delete** rows that shouldn't be there
+
+Changes propagate back to Airtable in real time, so your committee can
+work from either side.
+
+### Option 2 — Airtable directly
+
+Open your Airtable base. Every submission is a new row. Useful for:
+
+- **Kanban view** — toolbar ▸ Kanban grouped by `Group` to drag teams
+  between buckets visually
+- **Sharing with non-tech committee members** — top-right Share button
+- **Mobile** — Airtable iOS / Android apps
+
+---
+
+## Local development (optional)
 
 ```bash
 npm install
-cp .env.example .env
-# Edit .env and paste your token + base ID + table ID
-npm run setup
-```
-
-You should see output like:
-
-```
-✓ Team Size           created (singleSelect)
-✓ Leader Name         created (singleLineText)
-✓ Leader ID           created (singleLineText)
-...
-✓ Group               created (singleSelect)
-✓ Submitted At        created (createdTime)
-
-Done. Open your base in Airtable to confirm.
-```
-
-Refresh your Airtable base — every field is now there.
-
-After the setup runs successfully, you can **narrow the token's scopes**
-back down to just `data.records:read` and `data.records:write` for
-ongoing use. The schema scopes are only needed for the one-time setup.
-
----
-
-## 3. Deploy to Vercel
-
-1. Push the repo to GitHub.
-2. https://vercel.com → **Add new ▸ Project** → import the repo.
-3. Framework auto-detects Vite. Leave the defaults.
-4. **Add three Environment Variables** (Settings ▸ Environment Variables):
-   - `AIRTABLE_TOKEN` → your `pat...` value
-   - `AIRTABLE_BASE_ID` → `app...`
-   - `AIRTABLE_TABLE_ID` → `tbl...`
-
-   ⚠️ Do **not** prefix these with `VITE_`. They must stay server-side.
-5. Click **Deploy**.
-
-When it finishes you get a `*.vercel.app` URL — that's the form to share.
-
-> Updating the token later? Vercel will use the new value on the next
-> deploy. Trigger one via **Deployments ▸ ⋯ ▸ Redeploy** if needed.
-
----
-
-## 4. Local development
-
-```bash
-npm install
-cp .env.example .env
-# Paste your credentials
 npm run dev
 ```
 
-Open http://localhost:5173. The Vite dev server includes a built-in
-middleware that handles `POST /api/submit` exactly like the Vercel
-function would, so the local form really does write to your Airtable.
+The dev server uses the same config as production. As long as
+`src/lib/config.js` has a valid token, `npm run dev` lets you test on
+http://localhost:5173 and submissions go to the real Airtable base.
 
 ---
 
-## 5. Where you see responses (and how to organize them)
+## Duplicate prevention
 
-Open your Airtable base. Every submission becomes a new row. The schema
-setup already created two fields specifically for organizing teams:
-
-- **Group** — single-select with options A through H, each a different
-  colour. Switch to **Kanban view** (toolbar ▸ Kanban) grouped by this
-  field to drag teams between groups visually.
-- **Status** — single-select: `New`, `Contacted`, `Confirmed`, `Rejected`.
-  Track where each team is in your workflow.
-
-Other things you can do directly in Airtable:
-- **Share with your committee** (Share button, top-right) — read or edit.
-- **Sort / filter** by major, team size, status, group — toolbar.
-- **Create views** (Grid, Kanban, Calendar, Gallery) for different angles.
-- **Export to CSV** — view menu ▸ Download CSV.
-- **Mobile** — the Airtable app on iOS / Android works on the same base.
-
----
-
-## How duplicate prevention works
-
-Before creating a row, `/api/submit` checks whether the **Leader's
-University ID** already exists. If it does, the server returns
-`{ success: false, error: "duplicate" }` and the UI shows:
+Before creating a row, the page checks whether the **Leader's University
+ID** already exists. If it does, the UI shows:
 
 - AR: `تم تسجيل هذا الفريق مسبقاً بنفس الرقم الجامعي للقائد.`
 - EN: `This team is already registered with the same Leader University ID.`
 
-Same dedupe key whether you submit from production or local dev.
+Members can be on multiple teams — only the leader's ID is the dedupe
+key.
 
 ---
 
-## Validation rules (frontend + backend)
+## Validation rules
 
 | Field           | Rule                                          |
 | --------------- | --------------------------------------------- |
@@ -159,61 +144,68 @@ Same dedupe key whether you submit from production or local dev.
 | Major           | Required (dropdown)                           |
 | Phone           | Jordanian mobile: `^(\+962\|0)?7[789]\d{7}$`  |
 
-Both the React form and the serverless function enforce these — a
-malicious client can't bypass the server check.
-
 ---
 
 ## Project structure
 
 ```
 ieee-uop-registration/
-├── api/
-│   └── submit.js                # Vercel serverless POST endpoint
-├── lib/
-│   └── airtable.js              # Core handler (used by api/ and vite dev)
-├── scripts/
-│   └── setup-airtable.mjs       # One-time schema bootstrap
 ├── public/
 │   ├── logo.png                 # IEEE x UoP combined logo
 │   └── logo.svg                 # fallback placeholder
 ├── src/
-│   ├── components/              # Header, MemberForm, etc.
+│   ├── components/
+│   │   ├── Admin.jsx            # /admin dashboard (password protected)
+│   │   ├── Header.jsx           # form header
+│   │   └── ...                  # MemberForm, TeamSizeSelector, etc.
 │   ├── lib/
-│   │   ├── api.js               # POST helper
+│   │   ├── admin-api.js         # Admin: list / update / delete records
+│   │   ├── airtable.js          # Form: schema bootstrap + create record
+│   │   ├── api.js               # Submission entry point
+│   │   ├── config.js            # ⚠️ token + base/table + admin pw
 │   │   ├── i18n.js              # AR + EN strings, majors list
 │   │   └── schema.js            # Zod validation
-│   ├── App.jsx
+│   ├── App.jsx                  # registration form
 │   ├── index.css
-│   └── main.jsx
-├── .env.example
+│   └── main.jsx                 # routes /admin → Admin, else → App
 ├── index.html
 ├── package.json
 ├── postcss.config.js
 ├── tailwind.config.js
-├── vercel.json
 └── vite.config.js
 ```
 
 ---
 
+## Security cleanup — after the event ends
+
+1. **Rotate the token** — https://airtable.com/create/tokens → delete the
+   `IEEE Form` token. This invalidates the value that's baked into the
+   public bundle so even if someone saved it, it stops working.
+2. **(Optional)** Delete the Airtable base if it held sensitive data.
+3. **(Optional)** Make the GitHub repo private if you don't want anyone
+   reading the old token from git history (rotation in step 1 makes the
+   token useless anyway, so this is belt-and-suspenders).
+
+---
+
 ## Troubleshooting
 
-**`Missing env var: AIRTABLE_TOKEN` in dev** — you didn't copy
-`.env.example` to `.env` or didn't fill in all three values.
+**Yellow "Airtable token is not set" banner on the form** — `AIRTABLE_TOKEN`
+in `src/lib/config.js` is empty. Edit, paste your `pat...` value, commit.
 
-**Setup script fails with `INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND`** — the
-token is missing `schema.bases:read` or `schema.bases:write`. Update the
-token at https://airtable.com/create/tokens and re-run.
+**Toast: "Could not initialize the database"** — the token is missing
+the `schema.bases:read` / `schema.bases:write` scopes. Update the token
+at https://airtable.com/create/tokens.
 
-**Form submit fails with `airtable_error`** — open the Network tab in dev
-tools and look at `/api/submit` response. The `detail` field has the raw
-Airtable error message. Usually means a field name was renamed in
-Airtable (don't rename the fields the setup script creates).
+**Toast: "Network error" when submitting** — open dev tools Network tab
+and look at the failing Airtable request. Usually means the base ID or
+table ID in `config.js` doesn't match.
 
-**Vercel deploy succeeds but submits 500** — env vars aren't set in
-Vercel. Settings ▸ Environment Variables ▸ make sure all three are
-filled in for **Production** (and Preview if you use preview deploys).
+**Submissions land but a field is empty** — make sure the field names in
+your Airtable base haven't been renamed. The bootstrap created them as
+`Team Name`, `Team Size`, `Leader Name`, etc. — don't change them or
+the page won't know where to write.
 
 ---
 
